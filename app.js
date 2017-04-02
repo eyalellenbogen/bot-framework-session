@@ -17,6 +17,25 @@ server.post('/api/messages', connector.listen());
 // Bot Dialogs
 //=========================================================
 
-bot.dialog('/',(session)=>{
-    session.send('Hello World of Bots!');
-});
+bot.dialog('/', [
+    (session, args, next) => {
+        if (!session.userData.name) {
+            session.beginDialog('/profile');
+        } else {
+            next();
+        }
+    },
+    (session, results) => {
+        session.send('Hello there, %s', session.userData.name);
+    }
+]);
+
+bot.dialog('/profile', [
+    (session, args, next) => {
+        builder.Prompts.text(session, "What's your name?");
+    },
+    (session, results) => {
+        session.userData.name = results.response;
+        session.endDialog();
+    }
+])
