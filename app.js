@@ -17,46 +17,38 @@ server.post('/api/messages', connector.listen());
 // Bot Dialogs
 //=========================================================
 
-var intents = new builder.IntentDialog();
+var luisUrl = '<LUIS MODEL URL>';
+var recognizer = new builder.LuisRecognizer(luisUrl);
+var intents = new builder.IntentDialog({ recognizers: [recognizer] });
 bot.dialog('/', intents);
 
 intents
-    .matches(/^add/i, '/addTask')
-    .matches(/^remove/i, '/removeTask')
-    .matches(/^list/i, '/listTasks')
+    .matches('CreateTask', '/addTask')
+    .matches('RemoveTask', '/removeTask')
+    .matches('ListTasks', '/listTasks')
     .onDefault(builder.DialogAction.send('Sorry, I did not understand that. Please try again.'));
 
 bot.dialog('/addTask', [
     (session, args, next) => {
-        builder.Prompts.text(session, 'What task should I add?');
-    },
-    (session, results, next) => {
-        if (results.response) {
+        var task = builder.EntityRecognizer.findEntity(args.entities, 'Task');
+        if (task) {
             session.conversationData.tasks = session.conversationData.tasks || [];
-            session.conversationData.tasks.push(results.response);
-            session.send('Task added: %s', results.response);
-            session.endDialog();
+            session.conversationData.tasks.push(task.entity);
+            session.send('Task added: %s', task.entity);
         } else {
-            next();
+            session.send('Sorry, but I did not understand that.')
         }
+        session.endDialog();
     }
 ]);
 
 bot.dialog('/removeTask', [
     (session, args, next) => {
-        if (!session.conversationData.tasks) {
-            session.send('You don\'t have any tasks');
-            session.endDialog();
-            return;
-        }
-        builder.Prompts.choice(session, 'Which task do you want to remove?', session.conversationData.tasks);
-    },
-    (session, results, next) => {
-        var removed = removeTask(session.conversationData.tasks, results.response.entity);
-        if (removed) {
-            session.send('I removed %s', results.response.entity);
+        var task = builder.EntityRecognizer.findEntity(args.entities, 'Task');
+        if (removeTask(session.conversationData.tasks, task.entity)) {
+            session.send('"%s" has been removed', task.entity);
         } else {
-            session.send('I could not find "%s" in your task list.', results.response.entity);
+            session.send('Sorry, but "%s" wasn\'t on your task list', task.entity);
         }
         session.endDialog();
     }
